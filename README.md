@@ -26,9 +26,9 @@ In those datasets we have information on the demand per week for a particular pr
 
 I found somehow difficult to train a machine learning model for this project, due to memory issues since the dataset is very huge (billions of rows) and also lack of information.
 
-I tried to create a regression model, first using a simple linear regression model, and then also tried a XGBoost model, on both I wasnt able to achieve a good result, in all my trials the model didn't learn anything.
+I tried to create a regression model, first using a simple linear regression model, and then also tried a XGBoost model, on both I wasn't able to achieve a good result, in all my trials the model didn't learn anything.
 
-Then I decided to use  a more simple approach, thate became much more effective. I simply used the past average demand grouping by customer and product. To take into account the case where some customer is ordering a product for the first time I used the average demand by product and regarding the situation where the product is new and has never been sold before I used the average demand by customer.
+Then I decided to use  a more simple approach, that became much more effective. I simply used the past average demand grouping by customer and product as prediciton for future demand. To take into account the case where some customer is ordering a product for the first time I used the average demand by product and regarding the situation where the product is new and has never been sold before I used the average demand by customer.
 
 This approach led me to a very good score on Kaggle and also thaught me that not even always a machine learning approach is the best solution.
 
