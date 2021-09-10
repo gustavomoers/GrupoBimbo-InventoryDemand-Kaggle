@@ -1,0 +1,262 @@
+---
+title: "Grupo Bimbo Inventory Demand - Kaggle"
+author: "Gustavo Henrique Moers"
+date: "September 10, 2018"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##### Esse projeto faz parte do curso Big Data Analytics com R e Microsoft Azure Machine Learning da Formação Cientista de Dados da Data Science Academy
+
+## Project Overview
+
+Currently, daily inventory calculations are performed by direct delivery sales employees who must single-handedly predict the forces of supply, demand, and hunger based on their personal experiences with each store. With some breads carrying a one week shelf life, the acceptable margin for error is small.
+
+In this competition, Grupo Bimbo invites Kagglers to develop a model to accurately forecast inventory demand based on historical sales data. Doing so will make sure consumers of its over 100 bakery products aren’t staring at empty shelves, while also reducing the amount spent on refunds to store owners with surplus product unfit for sale.
+
+
+### Data Description
+
+The data can be accessed on https://www.kaggle.com/c/grupo-bimbo-inventory-demand/data
+
+In those datasets we have information on the demand per week for a particular product and customer, we also have information about the location of a particular customer.
+
+### Model Selection
+
+I found somehow difficult to train a machine learning model for this project, due to memory issues since the dataset is very huge (billions of rows) and also lack of information.
+
+I tried to create a regression model, first using a simple linear regression model, and then also tried a XGBoost model, on both I wasnt able to achieve a good result, in all my trials the model didn't learn anything.
+
+Then I decided to use  a more simple approach, thate became much more effective. I simply used the past average demand grouping by customer and product. To take into account the case where some customer is ordering a product for the first time I used the average demand by product and regarding the situation where the product is new and has never been sold before I used the average demand by customer.
+
+This approach led me to a very good score on Kaggle and also thaught me that not even always a machine learning approach is the best solution.
+
+## Packages
+
+```{r packaged}
+library(data.table)
+library(ggplot2)
+library(dplyr)
+library(plyr)
+```
+
+
+## Step 1 - Reading the data 
+
+I didn't use the whole dataset to this this project, since I don't have enough memory, so first I got a subset of the data using the code below on terminal.
+(If I had used the whole dataset I could achieve even better results)
+
+```{r}
+# perl -ne "print if (rand() < .10)" train.csv > subset.csv
+```
+
+
+```{r reading}
+col_names <- c("semana","Agencia_ID","Canal_ID","Ruta_SAK","Cliente_ID",
+              "Producto_ID","Venta_uni_hoy","Venta_hoy","Dev_uni_proxima",
+              "Dev_proxima","Demanda_uni_equil")
+
+train <- fread('subset.csv', col.names = col_names)
+products = fread("producto_tabla.csv")
+cliente <- fread("cliente_tabla.csv", encoding = 'UTF-8')
+town <- fread("town_state.csv", encoding = 'UTF-8')
+
+```
+
+
+## Step 2 - Analysys
+
+
+
+```{r}
+
+table(train$semana) 
+
+```
+
+#### TOP 10 Products
+```{r top 10 product demand}
+# TOP 10 product demand
+
+prod_demand <- train %>% 
+  group_by(Producto_ID) %>%
+  dplyr::summarise(freq = sum(Demanda_uni_equil)) %>%
+  join(products,by="Producto_ID") %>%
+  arrange(desc(freq))
+
+head(prod_demand,n=10)
+
+
+```
+
+
+#### TOP 10 Customers
+```{r}
+# TOP 10 customer demand
+
+cust_demand <- train %>% 
+  group_by(Cliente_ID) %>%
+  dplyr::summarise(freq = sum(Demanda_uni_equil)) %>%
+  join(cliente,by="Cliente_ID") %>%
+  arrange(desc(freq))
+
+head(cust_demand,n=10)
+```
+
+
+#### TOP 10 Cities
+```{r}
+# TOP 10 Agencias demand
+
+town_demand <- train %>% 
+  group_by(Agencia_ID) %>%
+  dplyr::summarise(freq = sum(Demanda_uni_equil)) %>%
+  join(town,by="Agencia_ID") %>%
+  arrange(desc(freq))
+
+head(town_demand,n=10)
+
+```
+
+
+
+## Step 3 - Grouping the data and saving
+
+
+```{r}
+# Grouping by Customer and Product
+
+dem_c_p <- train %>%
+  group_by(Cliente_ID,Producto_ID) %>%
+  dplyr::summarise(mean = mean(Demanda_uni_equil))
+
+
+
+write.csv(dem_c_p,"summary_Cliente-Producto.csv")
+
+```
+
+
+
+```{r}
+# Grouping by Product
+
+dem_p <- train %>%
+  group_by(Producto_ID) %>%
+  dplyr::summarise(mean = mean(Demanda_uni_equil))
+
+
+
+write.csv(dem_p,"summary_Producto.csv")
+
+```
+
+
+
+```{r}
+# Grouping by Customer
+
+dem_c <- train %>%
+  group_by(Cliente_ID) %>%
+  dplyr::summarise(mean = mean(Demanda_uni_equil))
+
+
+
+```
+
+
+
+## Step 4 - Reading the Test Data
+
+
+```{r}
+test <- fread('test.csv') 
+test$V1 <-NULL
+
+```
+
+
+## Step 5 - Merging the averages on the test data
+
+```{r}
+# Merging the average demand per customer and product
+
+test <- test %>%
+  join(dem_c_p, by=c("Cliente_ID",'Producto_ID'))
+
+```
+
+
+
+```{r}
+# getting the data that has not been filled in previously
+
+test1 <- test[is.na(test$mean),]
+test1$mean <- NULL
+
+
+# merging the average demand per product
+test1 <- test1 %>%
+  join(dem_p, by=c('Producto_ID'))
+
+```
+
+
+```{r}
+# getting the data that has not been filled in previously
+
+test2 <-  test1[is.na(test1$mean),]
+test2$mean <- NULL
+
+# merging the average demand per customer
+test2 <- test2 %>%
+  join(dem_c, by=c('Cliente_ID'))
+
+```
+
+
+```{r}
+# binding all together
+
+test <- na.omit(test)
+test1 <- na.omit(test1)
+
+df <- rbind(test,test1,test2)
+
+```
+
+
+## Step 6 - Creating the submission file
+
+```{r}
+df <- df %>%
+  mutate_if(is.numeric,coalesce,0)
+
+
+df <- df[,c('id','mean')]
+
+colnames(df)[2] <- 'Demanda_uni_equil'
+
+df <- df %>%
+  arrange(id)
+
+df[,2]=round(df[,2],2)
+df[,1]=as.integer(unlist(df[,1]))
+class(df[,1])='int32'
+
+
+
+write.csv(df,'submission.csv',row.names = F)
+```
+
+
+# Results
+
+![Kaggle Score](score.png)
+
+## End
