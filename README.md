@@ -31,3 +31,8 @@ I tried to create a regression model, first using a simple linear regression mod
 Then I decided to use  a more simple approach, thate became much more effective. I simply used the past average demand grouping by customer and product. To take into account the case where some customer is ordering a product for the first time I used the average demand by product and regarding the situation where the product is new and has never been sold before I used the average demand by customer.
 
 This approach led me to a very good score on Kaggle and also thaught me that not even always a machine learning approach is the best solution.
+
+
+## Results
+
+![score](https://user-images.githubusercontent.com/69984472/132924806-0dfa9844-2c21-4dcf-a0f2-f768b472dadc.png)
